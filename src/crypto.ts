@@ -1,0 +1,1 @@
+export default function sha1(s: string) { return require('crypto').createHash('sha1').update(s).digest('hex') }

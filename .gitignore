@@ -1,0 +1,10 @@
+# template .gitignore file for groupclaes api projects
+.DS_Store
+node_modules/
+config.js
+config.json
+index.min.js
+temp/
+dist/
+.tap/
+*.test.mjs
