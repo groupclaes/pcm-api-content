@@ -383,7 +383,7 @@ export default async function (fastify: FastifyInstance) {
       const color = colors[color_index]
 
       let file = fs.readFileSync('./assets/template.svg').toString('utf8')
-      file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase())
+      file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase().slice(0, 5))
       let image = sharp(Buffer.from(file))
       const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
 
