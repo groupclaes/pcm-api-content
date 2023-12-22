@@ -359,4 +359,67 @@ export default async function (fastify: FastifyInstance) {
         .send(err)
     }
   })
+
+  fastify.get('/tools/ext/:ext', async function (request: FastifyRequest<{ Params: { ext: string } }>, reply: FastifyReply) {
+    try {
+      let ext: string = request.params.ext.toLowerCase()
+
+      let ext_int = 0
+      switch (ext.length) {
+        case 1:
+          ext_int = ext.charCodeAt(0)
+          break
+
+        case 2:
+          ext_int = ext.charCodeAt(0) + (ext.charCodeAt(1) * 2)
+          break
+
+        default:
+          ext_int = ext.charCodeAt(0) + (ext.charCodeAt(1) * 2) + (ext.charCodeAt(2) * 4)
+          break
+      }
+
+      const color_index = ext_int % colors.length
+      const color = colors[color_index]
+
+      let file = fs.readFileSync('./assets/template.svg').toString('utf8')
+      file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase())
+
+      if (request.headers.accept && request.headers.accept.indexOf('image/svg+xml') > -1) {
+        return reply
+          .type('image/svg')
+          .send(file)
+      } else {
+        reply.type('image/png')
+        const stream = fs.createReadStream('./assets/404.png')
+        return reply.send(stream)
+      }
+    } catch (err) {
+      return reply
+        .status(500)
+        .send(err)
+    }
+  })
 }
+
+const colors = [
+  '#efefef',
+  '#44efef',
+  '#efef44',
+  '#ef44ef',
+  '#44ef44',
+  '#ef4444',
+  '#4444ef',
+  '#444444',
+]
+
+const colors2 = [
+  '#a2a2a2',
+  '#f7a2a2',
+  '#a2a2f7',
+  '#a2f7a2',
+  '#f7a2f7',
+  '#f7f7a2',
+  '#a2f7f7',
+  '#f7f7f7'
+]
