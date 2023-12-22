@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<svg width="200" height="200" fill="#4444ef" style="background-color:gray">
+<svg width="200" height="200" fill="#4444ef">
   <path d="M60,0 h75 v35 a15,15 0 0 0 15,15 h35 v135 a15,15 0 0 1 -15,15 h-120 a15,15 0 0 1 -15,-15 v-170 a15,15 0 0 1 15,-15 z" fill="rgb(226,229,231)" />
   <path d="M135,0 l50,50 h-35 a15,15 0 0 1 -15,-15 v35 z" fill="rgb(177,183,188)"/>
   <path d="M150,50 h35 v35 l-30,-30 z" fill="rgb(203,209,215)" />

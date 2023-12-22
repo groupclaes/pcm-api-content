@@ -390,9 +390,23 @@ export default async function (fastify: FastifyInstance) {
           .type('image/svg')
           .send(file)
       } else {
-        reply.type('image/png')
-        const stream = fs.createReadStream('./assets/404.png')
-        return reply.send(stream)
+        let image = sharp(file)
+        const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
+
+        const buffer = await (
+          webp ?
+            image
+              .webp({ quality: 80 })
+              .toBuffer()
+            :
+            image
+              .png({ quality: 90 })
+              .toBuffer()
+        )
+
+        return reply
+          .type(webp ? 'image/webp' : 'image/png')
+          .send(buffer)
       }
     } catch (err) {
       return reply
