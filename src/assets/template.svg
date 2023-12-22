@@ -5,5 +5,5 @@
   <path d="M150,50 h35 v35 l-30,-30 z" fill="rgb(203,209,215)" />
   <path d="M160,160 v6 a5, 5 0 0 1 -5,5 h-120 v-11 z" fill="rgb(203,209,215)" />
   <path d="M15,95 h140 a5,5 0 0 1 5,5 v60 a5,5 0 0 1 -5,5 h-135 a5,5 0 0 1 -5,-5 v-60 a5,5 0 0 1 5,-5 z" />
-  <text x="86" y="144" fill="white" font-family="nunito" font-size="40" text-rendering="optimizeLegibility" font-weight="600" text-anchor="middle">-EXT-</text>
+  <text x="86" y="144" fill="white" font-family="nunito" font-size="40" text-rendering="optimizeLegibility" font-weight="bold" text-anchor="middle">-EXT-</text>
 </svg>
