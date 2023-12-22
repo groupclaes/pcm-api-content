@@ -2,10 +2,15 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
 import fs from 'fs'
+import sql from 'mssql'
 
 import Document from '../repositories/document.repository'
 
 declare module 'fastify' {
+  export interface FastifyInstance {
+    getSqlPool: (name?: string) => Promise<sql.ConnectionPool>
+  }
+
   export interface FastifyReply {
     success: (data?: any, code?: number, executionTime?: number) => FastifyReply
     fail: (data?: any, code?: number, executionTime?: number) => FastifyReply
@@ -52,7 +57,8 @@ async function getByParams(request: FastifyRequest<{
   let thumbnail = 'thumb' in request.query
 
   try {
-    const repository = new Document(request.log)
+    const pool = await request.server.getSqlPool()
+    const repository = new Document(request.log, pool)
     // const token = request.token || { sub: null }
 
     let company: string = request.params['company'].toLowerCase()

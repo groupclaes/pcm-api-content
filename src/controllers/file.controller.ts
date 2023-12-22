@@ -4,6 +4,7 @@ import { env } from 'process'
 import fs from 'fs'
 import { pdftobuffer } from 'pdftopic'
 import sharp from 'sharp'
+import sql from 'mssql'
 
 import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
@@ -14,6 +15,10 @@ const PAGE_SIZE = {
 }
 
 declare module 'fastify' {
+  export interface FastifyInstance {
+    getSqlPool: (name?: string) => Promise<sql.ConnectionPool>
+  }
+
   export interface FastifyReply {
     success: (data?: any, code?: number, executionTime?: number) => FastifyReply
     fail: (data?: any, code?: number, executionTime?: number) => FastifyReply
@@ -34,7 +39,8 @@ export default async function (fastify: FastifyInstance) {
     }
 
     try {
-      const repository = new Document(request.log)
+      const pool = await fastify.getSqlPool()
+      const repository = new Document(request.log, pool)
       // const token = request.token || { sub: null }
       let uuid: string = request.params['uuid'].toLowerCase()
 
@@ -105,7 +111,8 @@ export default async function (fastify: FastifyInstance) {
     let culture = request.query.culture ?? 'nl'
 
     try {
-      const repo = new Document(request.log)
+      const pool = await fastify.getSqlPool()
+      const repo = new Document(request.log, pool)
       let uuid: string = request.params['uuid'].toLowerCase()
 
       let document = await repo.findOne({
@@ -275,7 +282,8 @@ export default async function (fastify: FastifyInstance) {
 
   fastify.delete('/:uuid/cache', async function (request: FastifyRequest<{ Params: { uuid: string } }>, reply: FastifyReply) {
     try {
-      const repository = new Document(request.log)
+      const pool = await fastify.getSqlPool()
+      const repository = new Document(request.log, pool)
       // const token = request.token || { sub: null }
       let uuid: string = request.params['uuid'].toLowerCase()
 
