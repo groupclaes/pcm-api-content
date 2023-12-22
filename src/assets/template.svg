@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <svg width="200" height="200" fill="#4444ef">
   <path d="M60,0 h75 v35 a15,15 0 0 0 15,15 h35 v135 a15,15 0 0 1 -15,15 h-120 a15,15 0 0 1 -15,-15 v-170 a15,15 0 0 1 15,-15 z" fill="rgb(226,229,231)" />
-  <path d="M135,0 l50,50 h-35 a15,15 0 0 1 -15,-15 v35 z" fill="rgb(177,183,188)"/>
+  <path d="M135,0 l50,50 h-35 a15,15 0 0 1 -15,-15 v35 z" fill="rgb(177,183,188)" />
   <path d="M150,50 h35 v35 l-30,-30 z" fill="rgb(203,209,215)" />
   <path d="M160,160 v6 a5, 5 0 0 1 -5,5 h-120 v-11 z" fill="rgb(203,209,215)" />
   <path d="M15,95 h140 a5,5 0 0 1 5,5 v60 a5,5 0 0 1 -5,5 h-135 a5,5 0 0 1 -5,-5 v-60 a5,5 0 0 1 5,-5 z" />
-  <text x="86" y="144" fill="white" font-family="helvetica" font-size="40" text-rendering="optimizeSpeed" font-weight="bold" text-anchor="middle">-EXT-</text>
+  <text x="86" y="144" fill="white" font-family="nunito" font-size="40" text-rendering="optimizeSpeed" font-weight="500" text-anchor="middle">-EXT-</text>
 </svg>

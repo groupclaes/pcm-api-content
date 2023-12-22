@@ -384,30 +384,23 @@ export default async function (fastify: FastifyInstance) {
 
       let file = fs.readFileSync('./assets/template.svg').toString('utf8')
       file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase())
+      let image = sharp(Buffer.from(file))
+      const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
 
-      if (request.headers.accept && request.headers.accept.indexOf('image/svg+xml') > -1) {
-        return reply
-          .type('image/svg')
-          .send(file)
-      } else {
-        let image = sharp(Buffer.from(file))
-        const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
+      const buffer = await (
+        webp ?
+          image
+            .webp({ quality: 80 })
+            .toBuffer()
+          :
+          image
+            .png({ quality: 90 })
+            .toBuffer()
+      )
 
-        const buffer = await (
-          webp ?
-            image
-              .webp({ quality: 80 })
-              .toBuffer()
-            :
-            image
-              .png({ quality: 90 })
-              .toBuffer()
-        )
-
-        return reply
-          .type(webp ? 'image/webp' : 'image/png')
-          .send(buffer)
-      }
+      return reply
+        .type(webp ? 'image/webp' : 'image/png')
+        .send(buffer)
     } catch (err) {
       return reply
         .status(500)
