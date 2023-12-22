@@ -4,6 +4,7 @@ import { env } from 'process'
 import fs from 'fs'
 import { pdftobuffer } from 'pdftopic'
 import sharp from 'sharp'
+import sql from 'mssql'
 
 import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
@@ -14,6 +15,10 @@ const PAGE_SIZE = {
 }
 
 declare module 'fastify' {
+  export interface FastifyInstance {
+    getSqlPool: (name?: string) => Promise<sql.ConnectionPool>
+  }
+
   export interface FastifyReply {
     success: (data?: any, code?: number, executionTime?: number) => FastifyReply
     fail: (data?: any, code?: number, executionTime?: number) => FastifyReply
@@ -34,7 +39,8 @@ export default async function (fastify: FastifyInstance) {
     }
 
     try {
-      const repository = new Document(request.log)
+      const pool = await fastify.getSqlPool()
+      const repository = new Document(request.log, pool)
       // const token = request.token || { sub: null }
       let uuid: string = request.params['uuid'].toLowerCase()
 
@@ -105,7 +111,8 @@ export default async function (fastify: FastifyInstance) {
     let culture = request.query.culture ?? 'nl'
 
     try {
-      const repo = new Document(request.log)
+      const pool = await fastify.getSqlPool()
+      const repo = new Document(request.log, pool)
       let uuid: string = request.params['uuid'].toLowerCase()
 
       let document = await repo.findOne({
@@ -275,7 +282,8 @@ export default async function (fastify: FastifyInstance) {
 
   fastify.delete('/:uuid/cache', async function (request: FastifyRequest<{ Params: { uuid: string } }>, reply: FastifyReply) {
     try {
-      const repository = new Document(request.log)
+      const pool = await fastify.getSqlPool()
+      const repository = new Document(request.log, pool)
       // const token = request.token || { sub: null }
       let uuid: string = request.params['uuid'].toLowerCase()
 
@@ -351,4 +359,74 @@ export default async function (fastify: FastifyInstance) {
         .send(err)
     }
   })
+
+  fastify.get('/tools/ext/:ext', async function (request: FastifyRequest<{ Params: { ext: string } }>, reply: FastifyReply) {
+    try {
+      let ext: string = request.params.ext.toLowerCase()
+
+      let ext_int = 0
+      switch (ext.length) {
+        case 1:
+          ext_int = ext.charCodeAt(0)
+          break
+
+        case 2:
+          ext_int = ext.charCodeAt(0) + (ext.charCodeAt(1) * 2)
+          break
+
+        default:
+          ext_int = ext.charCodeAt(0) + (ext.charCodeAt(1) * 2) + (ext.charCodeAt(2) * 4)
+          break
+      }
+
+      const color_index = ext_int % colors.length
+      const color = colors[color_index]
+
+      let file = fs.readFileSync('./assets/template.svg').toString('utf8')
+      file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase().slice(0, 5))
+      let image = sharp(Buffer.from(file))
+      const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
+
+      const buffer = await (
+        webp ?
+          image
+            .webp({ lossless: true })
+            .toBuffer()
+          :
+          image
+            .png()
+            .toBuffer()
+      )
+
+      return reply
+        .type(webp ? 'image/webp' : 'image/png')
+        .send(buffer)
+    } catch (err) {
+      return reply
+        .status(500)
+        .send(err)
+    }
+  })
 }
+
+const colors = [
+  '#efefef',
+  '#44efef',
+  '#efef44',
+  '#ef44ef',
+  '#44ef44',
+  '#ef4444',
+  '#4444ef',
+  '#444444',
+]
+
+const colors2 = [
+  '#a2a2a2',
+  '#f7a2a2',
+  '#a2a2f7',
+  '#a2f7a2',
+  '#f7a2f7',
+  '#f7f7a2',
+  '#a2f7f7',
+  '#f7f7f7'
+]

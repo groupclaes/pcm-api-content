@@ -14,7 +14,7 @@ RUN npm install esbuild -g
 RUN npm install
 
 # create esbuild package
-RUN esbuild ./src/index.ts --bundle --platform=node --minify --packages=external --external:'./config' --outfile=index.min.js
+RUN esbuild ./index.ts --bundle --platform=node --minify --packages=external --external:'./config' --outfile=index.min.js
 
 
 # ---- Deps ----
@@ -32,6 +32,12 @@ RUN npm install
 
 # --- release ---
 FROM --platform=linux/amd64 groupclaes/node AS release
+
+# font assets
+COPY ./assets ./
+RUN mkdir -p /usr/share/fonts/truetype/
+RUN install -m644 nunito.ttf /usr/share/fonts/truetype/
+RUN rm ./nunito.ttf
 
 # add lib form pdf and image manipulation
 RUN apk add --no-cache file imagemagick
