@@ -390,7 +390,7 @@ export default async function (fastify: FastifyInstance) {
           .type('image/svg')
           .send(file)
       } else {
-        let image = sharp(file)
+        let image = sharp(Buffer.from(file))
         const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
 
         const buffer = await (
