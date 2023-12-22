@@ -33,6 +33,12 @@ RUN npm install
 # --- release ---
 FROM --platform=linux/amd64 groupclaes/node AS release
 
+# font assets
+COPY ./assets ./
+RUN mkdir -p /usr/share/fonts/truetype/
+RUN install -m644 nunito.ttf /usr/share/fonts/truetype/
+RUN rm ./nunito.ttf
+
 # add lib form pdf and image manipulation
 RUN apk add --no-cache file imagemagick
 
