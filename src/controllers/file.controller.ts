@@ -390,11 +390,11 @@ export default async function (fastify: FastifyInstance) {
       const buffer = await (
         webp ?
           image
-            .webp({ quality: 80 })
+            .webp({ lossless: true })
             .toBuffer()
           :
           image
-            .png({ quality: 90 })
+            .png()
             .toBuffer()
       )
 
