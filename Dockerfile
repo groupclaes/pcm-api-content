@@ -36,14 +36,8 @@ FROM --platform=linux/amd64 groupclaes/node AS release
 # font assets
 COPY ./assets ./
 RUN mkdir -p /usr/share/fonts/truetype/
-RUN install -m644 nunito-300.ttf /usr/share/fonts/truetype/
-RUN rm ./nunito-300.ttf
-RUN install -m644 nunito-400.ttf /usr/share/fonts/truetype/
-RUN rm ./nunito-400.ttf
-RUN install -m644 nunito-500.ttf /usr/share/fonts/truetype/
-RUN rm ./nunito-500.ttf
-RUN install -m644 nunito-600.ttf /usr/share/fonts/truetype/
-RUN rm ./nunito-600.ttf
+RUN install -m644 nunito.ttf /usr/share/fonts/truetype/
+RUN rm ./nunito.ttf
 
 # add lib form pdf and image manipulation
 RUN apk add --no-cache file imagemagick
