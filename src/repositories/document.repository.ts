@@ -21,6 +21,7 @@ export default class Document {
     r.input('document_type', sql.VarChar, filters.documentType)
     r.input('object_id', sql.BigInt, filters.objectId)
     r.input('culture', sql.VarChar, filters.culture)
+    r.input('size', sql.VarChar, filters.size)
 
     this._logger.debug({ sqlParam: { filters }, sqlSchema: this.schema, sqlProc: 'usp_findOne' }, 'running procedure')
 
