@@ -27,15 +27,15 @@ RUN esbuild ./index.ts --bundle --platform=node --minify --packages=external --e
 # --- release ---
 FROM --platform=linux/amd64 groupclaes/node AS release
 
+# add lib form pdf and image manipulation
+USER root
+RUN apk add --no-cache file imagemagick
+
 # font assets
 COPY ./assets ./
 RUN mkdir -p /usr/share/fonts/truetype/
 RUN install -m644 nunito.ttf /usr/share/fonts/truetype/
 RUN rm ./nunito.ttf
-
-# add lib form pdf and image manipulation
-USER root
-RUN apk add --no-cache file imagemagick
 
 # set current user to node
 USER node
