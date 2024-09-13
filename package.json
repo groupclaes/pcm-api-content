@@ -8,16 +8,16 @@
     "test": "tap --reporter=list --show-full-coverage"
   },
   "dependencies": {
-    "@groupclaes/fastify-elastic": "^4.2.1",
-    "fastify": "^4.25.1",
-    "mssql": "^10.0.1",
+    "@groupclaes/fastify-elastic": "^4.4.0",
+    "fastify": "^4.28.1",
+    "mssql": "^11.0.1",
     "pdftopic": "^1.0.1-alpha",
-    "sharp": "^0.33.1"
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
-    "@types/mssql": "^9.1.4",
-    "@types/node": "^20.10.5",
-    "esbuild": "^0.19.10",
-    "tap": "^18.6.1"
+    "@types/mssql": "^9.1.5",
+    "@types/node": "^20.16.5",
+    "esbuild": "^0.19.12",
+    "tap": "^18.8.0"
   }
 }
