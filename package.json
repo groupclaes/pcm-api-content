@@ -1,10 +1,11 @@
 {
   "name": "pcm-api-content",
-  "version": "4.1.2",
+  "version": "4.4",
   "description": "",
   "author": "Jamie Vangeysel",
   "license": "MIT",
   "scripts": {
+    "build": "esbuild ./index.ts --bundle --platform=node --minify --packages=external --external:'./config' --outfile=index.min.js",
     "test": "tap --reporter=list --show-full-coverage"
   },
   "dependencies": {

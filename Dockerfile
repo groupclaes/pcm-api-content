@@ -1,32 +1,23 @@
-# ---- Deps ----
-FROM --platform=linux/amd64 groupclaes/npm AS depedencies
-
-# change the working directory to new exclusive app folder
+# ---- deps ----
+FROM groupclaes/npm:10 AS depedencies
 WORKDIR /usr/src/app
 
-# copy package file
-COPY package.json ./
+COPY package.json ./package.json
+COPY .npmrc ./.npmrc
 
-# install node packages
-RUN npm install --omit=dev
+RUN npm install --omit=dev --ignore-scripts
 
 
-# ---- Build ----
+# ---- build ----
 FROM depedencies AS build
+COPY index.ts ./index.ts
+COPY src/ ./src
 
-# copy project
-COPY ./ ./
-
-# install node packages
-RUN npm install
-
-# create esbuild package
-RUN esbuild ./index.ts --bundle --platform=node --minify --packages=external --external:'./config' --outfile=index.min.js
+RUN npm install --ignore-scripts && npm run build
 
 
-# --- release ---
-FROM --platform=linux/amd64 groupclaes/node AS release
-
+# ---- final ----
+FROM groupclaes/node:20
 # add lib form pdf and image manipulation
 USER root
 RUN apk add --no-cache file imagemagick
@@ -39,17 +30,11 @@ RUN rm ./nunito.ttf
 
 # set current user to node
 USER node
-
-# change the working directory to new exclusive app folder
 WORKDIR /usr/src/app
 
 # copy dependencies and assets
-COPY --chown=node:node --from=depedencies /usr/src/app ./
-COPY --chown=node:node src/assets/ ./assets/
+COPY src/assets/ ./assets/
+COPY --from=depedencies /usr/src/app ./
+COPY --from=build /usr/src/app/index.min.js ./
 
-# copy project file
-COPY --chown=node:node --from=build /usr/src/app/index.min.js ./
-
-
-# command to run when intantiate an image
 CMD ["node","index.min.js"]
