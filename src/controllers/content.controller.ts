@@ -1,14 +1,14 @@
 // External dependencies
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
-import fs from 'fs'
-import sql from 'mssql'
+import * as fs from 'fs'
+import { ConnectionPool } from 'mssql'
 
 import Document from '../repositories/document.repository'
 
 declare module 'fastify' {
   export interface FastifyInstance {
-    getSqlPool: (name?: string) => Promise<sql.ConnectionPool>
+    getSqlPool: (name?: string) => Promise<ConnectionPool>
   }
 
   export interface FastifyReply {

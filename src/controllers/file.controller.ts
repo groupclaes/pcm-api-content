@@ -1,13 +1,15 @@
 // External dependencies
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
-import fs from 'fs'
-import { pdftobuffer } from 'pdftopic'
-import sharp from 'sharp'
-import sql from 'mssql'
+import * as fs from 'fs'
+import { fromBuffer } from 'pdf2pic'
+import * as sharp from 'sharp'
+import { ConnectionPool } from 'mssql'
 
 import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
+import parseRangeHeader from '../request-range'
+import { Range, Ranges } from 'range-parser'
 
 const PAGE_SIZE = {
   WIDTH: 420,
@@ -16,7 +18,7 @@ const PAGE_SIZE = {
 
 declare module 'fastify' {
   export interface FastifyInstance {
-    getSqlPool: (name?: string) => Promise<sql.ConnectionPool>
+    getSqlPool: (name?: string) => Promise<ConnectionPool>
   }
 
   export interface FastifyReply {
@@ -38,11 +40,12 @@ export default async function (fastify: FastifyInstance) {
       contentMode = 'inline'
     }
 
+    // const token = request.token || { sub: null }
+    let uuid: string = request.params['uuid'].toLowerCase()
+
     try {
       const pool = await fastify.getSqlPool()
       const repository = new Document(request.log, pool)
-      // const token = request.token || { sub: null }
-      let uuid: string = request.params['uuid'].toLowerCase()
 
       let document = await repository.findOne({
         guid: uuid
@@ -67,6 +70,47 @@ export default async function (fastify: FastifyInstance) {
 
           if (contentMode === 'inline') {
             filename = `filename="${document.documentType}_${document.itemNum}.${document.extension}"`
+          }
+
+          if (document.mimeType.startsWith('video/')) {
+            request.log.debug('in video specific handler!')
+            // video specific handler
+            const range: { unit: string; ranges: Ranges } = parseRangeHeader(request, document.size)
+            if (!range) {
+              request.log.debug('Range Not Satisfiable')
+              // If no valid range is found, throw a 416 error
+              // as indicated by the RFC 7233
+              const error = new Error('Range Not Satisfiable')
+              error['statusCode'] = 416
+              throw error
+            }
+            // Handle only the first range requested
+            const singleRange: Range = range.ranges[0]
+            request.log.debug({ singleRange }, 'singleRange')
+
+            // Define the size of the chunk to send
+            const chunkSize = 1e6 // 1MB = 1 * 1e6
+            const start: number = singleRange.start
+            const end: number = (singleRange.end ?? Math.min(start + chunkSize, document.size)) - 1
+            const contentLength: number = end - start + 1
+            request.log.debug({ contentLength }, `bytes ${start}-${end}/${document.size}`)
+
+            // Set the appropriate headers for range requests
+            reply.headers({
+              'Accept-Ranges': 'bytes',
+              'Content-Range': `bytes ${start}-${end}/${document.size}`,
+              'Content-Length': contentLength,
+              'Last-Modified': lastMod.toUTCString(),
+              'document-guid': uuid
+            })
+
+            // Send a 206 Partial Content status code
+            reply.code(206)
+            reply.type(document.mimeType)
+            request.log.debug({ mime: document.mimeType }, 'code 206')
+
+            // Stream the requested chunk of the video file
+            return fs.createReadStream(_fn, { start, end })
           }
 
           reply
@@ -98,6 +142,7 @@ export default async function (fastify: FastifyInstance) {
           })
       }
     } catch (err) {
+      request.log.error({ err, uuid }, 'Error while retrieving file')
       return reply
         .status(500)
         .send(err)
@@ -107,7 +152,10 @@ export default async function (fastify: FastifyInstance) {
   /**
    * previews are 280x280 images `thumb_large` if file is pdf thumb will be PAGE_SIZE
    */
-  fastify.get('/:uuid/preview', async function (request: FastifyRequest<{ Params: { uuid: string }, Querystring: { culture?: string } }>, reply: FastifyReply) {
+  fastify.get('/:uuid/preview', async function (request: FastifyRequest<{
+    Params: { uuid: string },
+    Querystring: { culture?: string }
+  }>, reply: FastifyReply) {
     let culture = request.query.culture ?? 'nl'
 
     try {
@@ -204,9 +252,13 @@ export default async function (fastify: FastifyInstance) {
                 }
 
                 const pdf = fs.readFileSync(_fn, null)
-                const buff = await pdftobuffer(pdf, 0)
+                const convert = fromBuffer(pdf, {
+                  format: 'png'
+                })
 
-                let image = sharp(buff)
+                const output = await convert(1, { responseType: 'buffer' })
+
+                let image = sharp(output.buffer)
                 const background = '#ffffff'
                 image = image
                   .resize({
@@ -280,7 +332,9 @@ export default async function (fastify: FastifyInstance) {
     }
   })
 
-  fastify.delete('/:uuid/cache', async function (request: FastifyRequest<{ Params: { uuid: string } }>, reply: FastifyReply) {
+  fastify.delete('/:uuid/cache', async function (request: FastifyRequest<{
+    Params: { uuid: string }
+  }>, reply: FastifyReply) {
     try {
       const pool = await fastify.getSqlPool()
       const repository = new Document(request.log, pool)
@@ -360,7 +414,9 @@ export default async function (fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/tools/ext/:ext', async function (request: FastifyRequest<{ Params: { ext: string } }>, reply: FastifyReply) {
+  fastify.get('/tools/ext/:ext', async function (request: FastifyRequest<{
+    Params: { ext: string }
+  }>, reply: FastifyReply) {
     try {
       let ext: string = request.params.ext.toLowerCase()
 
@@ -417,7 +473,7 @@ const colors = [
   '#44ef44',
   '#ef4444',
   '#4444ef',
-  '#444444',
+  '#444444'
 ]
 
 const colors2 = [
