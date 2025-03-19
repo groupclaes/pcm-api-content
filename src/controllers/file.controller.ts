@@ -77,7 +77,7 @@ export default async function(fastify: FastifyInstance) {
             // video specific handler
             const range: { unit: string; ranges: Ranges } | number = parseRangeHeader(request, document.size)
             let singleRange: Range
-            if (typeof (range) === 'number') { // Client is a dumb-dumb
+            if (!range || typeof (range) === 'number') { // Client is a dumb-dumb
               request.log.debug({ range }, 'Range Not Satisfiable')
               // If no valid range is found, throw a 416 error
               // as indicated by the RFC 7233
@@ -117,6 +117,7 @@ export default async function(fastify: FastifyInstance) {
               'Accept-Ranges': 'bytes',
               'Content-Range': `bytes ${start}-${end}/${document.size}`,
               'Content-Length': contentLength,
+              'Content-Disposition': 'inline; ' + filename,
               'Last-Modified': lastMod.toUTCString(),
               'document-guid': uuid
             })

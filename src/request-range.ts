@@ -6,7 +6,7 @@ import RangeParser, { Ranges } from 'range-parser'
 export default function parseRangeHeader(request: FastifyRequest, size: number, rangeParserOptions?: any): {
   unit: string,
   ranges: Ranges
-} | number {
+} | number | undefined {
   const range = request.headers.range
   if (!range)
     return
@@ -16,6 +16,5 @@ export default function parseRangeHeader(request: FastifyRequest, size: number, 
     return res
 
   const parsedResult = res as Ranges
-
   return { unit: parsedResult.type, ranges: parsedResult }
 }
