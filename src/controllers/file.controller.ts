@@ -420,7 +420,7 @@ export default async function (fastify: FastifyInstance) {
     try {
       let ext: string = request.params.ext.toLowerCase()
 
-      let ext_int = 0
+      let ext_int: number
       switch (ext.length) {
         case 1:
           ext_int = ext.charCodeAt(0)
@@ -476,13 +476,13 @@ const colors = [
   '#444444'
 ]
 
-const colors2 = [
-  '#a2a2a2',
-  '#f7a2a2',
-  '#a2a2f7',
-  '#a2f7a2',
-  '#f7a2f7',
-  '#f7f7a2',
-  '#a2f7f7',
-  '#f7f7f7'
-]
+// const colors2 = [
+//   '#a2a2a2',
+//   '#f7a2a2',
+//   '#a2a2f7',
+//   '#a2f7a2',
+//   '#f7a2f7',
+//   '#f7f7a2',
+//   '#a2f7f7',
+//   '#f7f7f7'
+// ]
