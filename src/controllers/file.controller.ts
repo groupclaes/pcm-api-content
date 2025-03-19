@@ -1,7 +1,7 @@
 // External dependencies
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
-import * as fs from 'fs'
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, unlink } from 'node:fs'
 import { fromBuffer } from 'pdf2pic'
 import * as sharp from 'sharp'
 import { ConnectionPool } from 'mssql'
@@ -28,11 +28,11 @@ declare module 'fastify' {
   }
 }
 
-export default async function (fastify: FastifyInstance) {
+export default async function(fastify: FastifyInstance) {
   /**
    * @route /{version}/content/file/{uuid}
    */
-  fastify.get('/:uuid', async function (request: FastifyRequest<{ Params: { uuid: string } }>, reply: FastifyReply) {
+  fastify.get('/:uuid', async function(request: FastifyRequest<{ Params: { uuid: string } }>, reply: FastifyReply) {
     let contentMode = 'attachment'
     // fix CSP
     // reply.header('Content-Security-Policy', `default-src 'self' 'unsafe-inline' pcm.groupclaes.be`)
@@ -55,8 +55,8 @@ export default async function (fastify: FastifyInstance) {
         const uuid = document.guid.toLowerCase()
         const _fn = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/file`
 
-        if (fs.existsSync(_fn)) {
-          const lastMod = fs.statSync(_fn).mtime
+        if (existsSync(_fn)) {
+          const lastMod = statSync(_fn).mtime
           if (request.method === 'HEAD') {
             return reply
               .header('Content-Length', document.size)
@@ -65,8 +65,8 @@ export default async function (fastify: FastifyInstance) {
               .send(document.name)
           }
 
-          const document_name_encoded = encodeURI(document.name)
-          let filename = `filename="${document_name_encoded}"; filename*=UTF-8''${document_name_encoded}`
+          const document_name_encoded: string = encodeURI(document.name)
+          let filename: string = `filename="${document_name_encoded}"; filename*=UTF-8''${document_name_encoded}`
 
           if (contentMode === 'inline') {
             filename = `filename="${document.documentType}_${document.itemNum}.${document.extension}"`
@@ -75,22 +75,39 @@ export default async function (fastify: FastifyInstance) {
           if (document.mimeType.startsWith('video/')) {
             request.log.debug('in video specific handler!')
             // video specific handler
-            const range: { unit: string; ranges: Ranges } = parseRangeHeader(request, document.size)
-            if (!range) {
-              request.log.debug('Range Not Satisfiable')
+            const range: { unit: string; ranges: Ranges } | number = parseRangeHeader(request, document.size)
+            let singleRange: Range
+            if (typeof (range) === 'number') { // Client is a dumb-dumb
+              request.log.debug({ range }, 'Range Not Satisfiable')
               // If no valid range is found, throw a 416 error
               // as indicated by the RFC 7233
-              const error = new Error('Range Not Satisfiable')
-              error['statusCode'] = 416
-              throw error
+              switch (range) {
+                case -2:
+                  return reply.error('Malformed range header', 416)
+
+                case -1:
+                  return reply.error('Range Not Satisfiable', 416)
+
+                default:
+                  // No 'Range' header present; this is often caused by misconfiguration on the client-side.
+                  // Nonetheless, we will be an understanding, happy server and fix the client's stupidity.
+                  singleRange = {
+                    start: 0,
+                    end: 1
+                  }
+                  break
+              }
+            } else {
+              // Handle only the first range requested
+              singleRange = range.ranges[0]
+              request.log.debug({ singleRange }, 'singleRange')
             }
-            // Handle only the first range requested
-            const singleRange: Range = range.ranges[0]
-            request.log.debug({ singleRange }, 'singleRange')
 
             // Define the size of the chunk to send
             const chunkSize = 1e6 // 1MB = 1 * 1e6
             const start: number = singleRange.start
+            // Always pick the smallest end size; this accommodates if the client feels special and
+            // requested a smaller size than our defined buffer size of 1MB.
             const end: number = Math.min(singleRange.end, start + chunkSize - 1, document.size - 1)
             const contentLength: number = end - start + 1
             request.log.debug({ contentLength }, `bytes ${start}-${end}/${document.size}`)
@@ -110,7 +127,7 @@ export default async function (fastify: FastifyInstance) {
             request.log.debug({ mime: document.mimeType }, 'code 206')
 
             // Stream the requested chunk of the video file
-            return fs.createReadStream(_fn, { start, end })
+            return createReadStream(_fn, { start, end })
           }
 
           reply
@@ -121,9 +138,7 @@ export default async function (fastify: FastifyInstance) {
             .header('Content-Disposition', `${contentMode}; ${filename}`)
             .type(document.mimeType)
 
-          const stream = fs.createReadStream(_fn)
-          return reply
-            .send(stream)
+          return createReadStream(_fn)
         }
         return reply
           .code(404)
@@ -152,7 +167,7 @@ export default async function (fastify: FastifyInstance) {
   /**
    * previews are 280x280 images `thumb_large` if file is pdf thumb will be PAGE_SIZE
    */
-  fastify.get('/:uuid/preview', async function (request: FastifyRequest<{
+  fastify.get('/:uuid/preview', async function(request: FastifyRequest<{
     Params: { uuid: string },
     Querystring: { culture?: string }
   }>, reply: FastifyReply) {
@@ -185,73 +200,73 @@ export default async function (fastify: FastifyInstance) {
             return reply.redirect(307, `https://pcm.groupclaes.be/${env.APP_VERSION}/i/${uuid}?s=thumb_large`)
 
           case 'image/tiff':
-            stream = fs.createReadStream('./assets/tif.png')
+            stream = createReadStream('./assets/tif.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'text/plain':
-            stream = fs.createReadStream('./assets/txt.png')
+            stream = createReadStream('./assets/txt.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'document-image/vnd.adobe.photoshop':
-            stream = fs.createReadStream('./assets/psd.png')
+            stream = createReadStream('./assets/psd.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'document-application/postscript':
-            stream = fs.createReadStream('./assets/ps.png')
+            stream = createReadStream('./assets/ps.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'document-application/vnd.ms-powerpoint':
-            stream = fs.createReadStream('./assets/ppt.png')
+            stream = createReadStream('./assets/ppt.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'document-application/vnd.ms-excel':
           case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-            stream = fs.createReadStream('./assets/xls.png')
+            stream = createReadStream('./assets/xls.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'application/msword':
           case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            stream = fs.createReadStream('./assets/doc.png')
+            stream = createReadStream('./assets/doc.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'application/x-compressed':
           case 'application/x-zip-compressed':
-            stream = fs.createReadStream('./assets/zip.png')
+            stream = createReadStream('./assets/zip.png')
             return reply
               .type('image/png')
               .send(stream)
 
           case 'application/pdf':
             try {
-              if (fs.existsSync(_fn)) {
-                const lastMod = fs.statSync(_fn).mtime
+              if (existsSync(_fn)) {
+                const lastMod = statSync(_fn).mtime
                 const etag = sha1(lastMod.toISOString())
                 const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
 
-                if (fs.existsSync(_fn_etag) && webp) {
-                  if (fs.readFileSync(_fn_etag).toString() == etag) {
-                    stream = fs.readFileSync(_fn_thumb)
+                if (existsSync(_fn_etag) && webp) {
+                  if (readFileSync(_fn_etag).toString() == etag) {
+                    stream = readFileSync(_fn_thumb)
                     return reply
                       .type('image/webp')
                       .send(stream)
                   }
                 }
 
-                const pdf = fs.readFileSync(_fn, null)
+                const pdf = readFileSync(_fn, null)
                 const convert = fromBuffer(pdf, {
                   format: 'png'
                 })
@@ -281,8 +296,8 @@ export default async function (fastify: FastifyInstance) {
                 )
 
                 if (buffer) {
-                  fs.writeFileSync(_fn_thumb, buffer)
-                  fs.writeFileSync(_fn_etag, etag)
+                  writeFileSync(_fn_thumb, buffer)
+                  writeFileSync(_fn_etag, etag)
 
                   return reply
                     .type(webp ? 'image/webp' : 'image/jpeg')
@@ -292,7 +307,7 @@ export default async function (fastify: FastifyInstance) {
             } catch (err) {
               console.error(err)
 
-              stream = fs.createReadStream('./assets/pdf.png')
+              stream = createReadStream('./assets/pdf.png')
               return reply
                 .type('image/png')
                 .send(stream)
@@ -303,25 +318,25 @@ export default async function (fastify: FastifyInstance) {
       if (request.headers.accept && request.headers.accept.indexOf('image/svg+xml') > -1) {
         reply.type('image/svg+xml')
         if (culture === 'nl') {
-          const stream = fs.createReadStream('./assets/404_nl.svg')
+          const stream = createReadStream('./assets/404_nl.svg')
           return reply.send(stream)
         } else if (culture === 'fr') {
-          const stream = fs.createReadStream('./assets/404_fr.svg')
+          const stream = createReadStream('./assets/404_fr.svg')
           return reply.send(stream)
         } else {
-          const stream = fs.createReadStream('./assets/404.svg')
+          const stream = createReadStream('./assets/404.svg')
           return reply.send(stream)
         }
       } else {
         reply.type('image/png')
         if (culture === 'nl') {
-          const stream = fs.createReadStream('./assets/404_nl.png')
+          const stream = createReadStream('./assets/404_nl.png')
           return reply.send(stream)
         } else if (culture === 'fr') {
-          const stream = fs.createReadStream('./assets/404_fr.png')
+          const stream = createReadStream('./assets/404_fr.png')
           return reply.send(stream)
         } else {
-          const stream = fs.createReadStream('./assets/404.png')
+          const stream = createReadStream('./assets/404.png')
           return reply.send(stream)
         }
       }
@@ -332,7 +347,7 @@ export default async function (fastify: FastifyInstance) {
     }
   })
 
-  fastify.delete('/:uuid/cache', async function (request: FastifyRequest<{
+  fastify.delete('/:uuid/cache', async function(request: FastifyRequest<{
     Params: { uuid: string }
   }>, reply: FastifyReply) {
     try {
@@ -348,58 +363,58 @@ export default async function (fastify: FastifyInstance) {
       if (document) {
         const files: string[] = []
 
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large_etag`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/border-color_code`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/border-color_code`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/border-color_code`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/background-color_code`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/background-color_code`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/background-color_code`)
         }
-        if (fs.existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/color_code`)) {
+        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/color_code`)) {
           files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/color_code`)
         }
 
         if (files.length > 0) {
-          await Promise.all(files.map(file => fs.unlink(file, console.error)))
+          await Promise.all(files.map(file => unlink(file, console.error)))
         }
         return files
       }
@@ -414,7 +429,7 @@ export default async function (fastify: FastifyInstance) {
     }
   })
 
-  fastify.get('/tools/ext/:ext', async function (request: FastifyRequest<{
+  fastify.get('/tools/ext/:ext', async function(request: FastifyRequest<{
     Params: { ext: string }
   }>, reply: FastifyReply) {
     try {
@@ -438,7 +453,7 @@ export default async function (fastify: FastifyInstance) {
       const color_index = ext_int % colors.length
       const color = colors[color_index]
 
-      let file = fs.readFileSync('./assets/template.svg').toString('utf8')
+      let file = readFileSync('./assets/template.svg').toString('utf8')
       file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase().slice(0, 5))
       let image = sharp(Buffer.from(file))
       const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
