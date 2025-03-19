@@ -91,7 +91,7 @@ export default async function (fastify: FastifyInstance) {
             // Define the size of the chunk to send
             const chunkSize = 1e6 // 1MB = 1 * 1e6
             const start: number = singleRange.start
-            const end: number = (singleRange.end ?? Math.min(start + chunkSize, document.size)) - 1
+            const end: number = Math.min(singleRange.end, start + chunkSize - 1, document.size - 1)
             const contentLength: number = end - start + 1
             request.log.debug({ contentLength }, `bytes ${start}-${end}/${document.size}`)
 
