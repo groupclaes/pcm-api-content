@@ -23,31 +23,28 @@ export default async function(fastify: FastifyInstance) {
    */
   fastify.get('/:uuid', { exposeHeadRoute: true }, async function(request: FastifyRequest<{
     Params: { uuid: string }
-  }>, reply: FastifyReply) {
-    let contentMode = 'attachment'
+  }>, reply: FastifyReply): Promise<FastifyReply | ReadStream> {
+    const contentMode: 'inline' | 'attachment' = ('show' in (request.query as any)) ? 'inline' : 'attachment'
     // fix CSP
     // reply.header('Content-Security-Policy', `default-src 'self' 'unsafe-inline' pcm.groupclaes.be`)
-    if ('show' in (request.query as any)) {
-      contentMode = 'inline'
-    }
 
     // const token = request.token || { sub: null }
     let uuid: string = request.params['uuid'].toLowerCase()
 
     try {
-      const pool = await fastify.getSqlPool()
+      const pool: ConnectionPool = await fastify.getSqlPool()
       const repository = new Document(request.log, pool)
 
-      let document = await repository.findOne({
+      let document: any = await repository.findOne({
         guid: uuid
       })
 
       if (document) {
-        const uuid = document.guid.toLowerCase()
+        const uuid: string = document.guid.toLowerCase()
         const _fn = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/file`
 
         if (existsSync(_fn)) {
-          const lastMod = statSync(_fn).mtime
+          const lastMod: Date = statSync(_fn).mtime
           if (request.method === 'HEAD') {
             return reply
               .header('Content-Length', document.size)
@@ -57,70 +54,11 @@ export default async function(fastify: FastifyInstance) {
           }
 
           const document_name_encoded: string = encodeURI(document.name)
-          let filename: string = `filename="${document_name_encoded}"; filename*=UTF-8''${document_name_encoded}`
+          const filename: string = contentMode === 'inline' ? `filename="${document.documentType}_${document.itemNum}.${document.extension}"`
+            : `filename="${document_name_encoded}"; filename*=UTF-8''${document_name_encoded}`
 
-          if (contentMode === 'inline') {
-            filename = `filename="${document.documentType}_${document.itemNum}.${document.extension}"`
-          }
-
-          if (document.mimeType.startsWith('video/')) {
-            request.log.debug('in video specific handler!')
-            // video specific handler
-            const range: { unit: string; ranges: Ranges } | number = parseRangeHeader(request, document.size)
-            let singleRange: Range
-            if (!range || typeof (range) === 'number') { // Client is a dumb-dumb
-              request.log.debug({ range }, 'Range Not Satisfiable')
-              // If no valid range is found, throw a 416 error
-              // as indicated by the RFC 7233
-              switch (range) {
-                case -2:
-                  return reply.error('Malformed range header', 416)
-
-                case -1:
-                  return reply.error('Range Not Satisfiable', 416)
-
-                default:
-                  // No 'Range' header present; this is often caused by misconfiguration on the client-side.
-                  // Nonetheless, we will be an understanding, happy server and fix the client's stupidity.
-                  singleRange = {
-                    start: 0,
-                    end: 1
-                  }
-                  break
-              }
-            } else {
-              // Handle only the first range requested
-              singleRange = range.ranges[0]
-              request.log.debug({ singleRange }, 'singleRange')
-            }
-
-            // Define the size of the chunk to send
-            const chunkSize = 1e6 // 1MB = 1 * 1e6
-            const start: number = singleRange.start
-            // Always pick the smallest end size; this accommodates if the client feels special and
-            // requested a smaller size than our defined buffer size of 1MB.
-            const end: number = Math.min(singleRange.end, start + chunkSize - 1, document.size - 1)
-            const contentLength: number = end - start + 1
-            request.log.debug({ contentLength }, `bytes ${start}-${end}/${document.size}`)
-
-            // Set the appropriate headers for range requests
-            reply.headers({
-              'Accept-Ranges': 'bytes',
-              'Content-Range': `bytes ${start}-${end}/${document.size}`,
-              'Content-Length': contentLength,
-              'Content-Disposition': 'inline; ' + filename,
-              'Last-Modified': lastMod.toUTCString(),
-              'document-guid': uuid
-            })
-
-            // Send a 206 Partial Content status code
-            reply.code(206)
-            reply.type(document.mimeType)
-            request.log.debug({ mime: document.mimeType }, 'code 206')
-
-            // Stream the requested chunk of the video file
-            return createReadStream(_fn, { start, end })
-          }
+          if (document.mimeType.startsWith('video/'))
+            return video_handler(request, reply, document, filename, _fn, lastMod, uuid)
 
           reply
             .header('Cache-Control', `must-revalidate, max-age=${document.maxAge}, private`)
@@ -429,6 +367,65 @@ export default async function(fastify: FastifyInstance) {
         .send(err)
     }
   })
+}
+
+function video_handler(request: FastifyRequest, reply: FastifyReply, document: any, filename: string, _fn: string, lastMod: Date, uuid: string): FastifyReply | ReadStream {
+  request.log.debug('in video specific handler!')
+  // video specific handler
+  const range: { unit: string; ranges: Ranges } | number = parseRangeHeader(request, document.size)
+  let singleRange: Range
+  if (!range || typeof (range) === 'number') { // Client is a dumb-dumb
+    request.log.debug({ range }, 'Range Not Satisfiable')
+    // If no valid range is found, throw a 416 error
+    // as indicated by the RFC 7233
+    switch (range) {
+      case -2:
+        return reply.error('Malformed range header', 416)
+
+      case -1:
+        return reply.error('Range Not Satisfiable', 416)
+
+      default:
+        // No 'Range' header present; this is often caused by misconfiguration on the client-side.
+        // Nonetheless, we will be an understanding, happy server and fix the client's stupidity.
+        singleRange = {
+          start: 0,
+          end: 1
+        }
+        break
+    }
+  } else {
+    // Handle only the first range requested
+    singleRange = range.ranges[0]
+    request.log.debug({ singleRange }, 'singleRange')
+  }
+
+  // Define the size of the chunk to send
+  const chunkSize = 1e6 // 1MB = 1 * 1e6
+  const start: number = singleRange.start
+  // Always pick the smallest end size; this accommodates if the client feels special and
+  // requested a smaller size than our defined buffer size of 1MB.
+  const end: number = Math.min(singleRange.end, start + chunkSize - 1, document.size - 1)
+  const contentLength: number = end - start + 1
+  request.log.debug({ contentLength }, `bytes ${start}-${end}/${document.size}`)
+
+  // Set the appropriate headers for range requests
+  reply.headers({
+    'Accept-Ranges': 'bytes',
+    'Content-Range': `bytes ${start}-${end}/${document.size}`,
+    'Content-Length': contentLength,
+    'Content-Disposition': 'inline; ' + filename,
+    'Last-Modified': lastMod.toUTCString(),
+    'document-guid': uuid
+  })
+
+  // Send a 206 Partial Content status code
+  reply.code(206)
+  reply.type(document.mimeType)
+  request.log.debug({ mime: document.mimeType }, 'code 206')
+
+  // Stream the requested chunk of the video file
+  return createReadStream(_fn, { start, end })
 }
 
 const colors = [
