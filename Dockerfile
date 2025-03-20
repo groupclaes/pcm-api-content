@@ -13,10 +13,7 @@ FROM deps AS build
 COPY index.ts ./index.ts
 COPY src/ ./src
 
-RUN npm install --ignore-scripts && \
-    # npm install --platform=linuxmusl --arch=x64 sharp && \
-    # npm rebuild --verbose sharp && \
-    npm run build
+RUN npm install --ignore-scripts && npm run build
 
 
 # ---- final ----

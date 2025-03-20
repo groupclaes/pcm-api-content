@@ -4,7 +4,6 @@ import { env } from 'process'
 import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, unlink } from 'node:fs'
 import { fromBuffer } from 'pdf2pic'
 import * as sharp from 'sharp'
-import { ConnectionPool } from 'mssql'
 
 import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
@@ -16,23 +15,13 @@ const PAGE_SIZE = {
   HEIGHT: 595
 }
 
-declare module 'fastify' {
-  export interface FastifyInstance {
-    getSqlPool: (name?: string) => Promise<ConnectionPool>
-  }
-
-  export interface FastifyReply {
-    success: (data?: any, code?: number, executionTime?: number) => FastifyReply
-    fail: (data?: any, code?: number, executionTime?: number) => FastifyReply
-    error: (message?: string, code?: number, executionTime?: number) => FastifyReply
-  }
-}
-
 export default async function(fastify: FastifyInstance) {
   /**
    * @route /{version}/content/file/{uuid}
    */
-  fastify.get('/:uuid', async function(request: FastifyRequest<{ Params: { uuid: string } }>, reply: FastifyReply) {
+  fastify.get('/:uuid', { exposeHeadRoute: true }, async function(request: FastifyRequest<{
+    Params: { uuid: string }
+  }>, reply: FastifyReply) {
     let contentMode = 'attachment'
     // fix CSP
     // reply.header('Content-Security-Policy', `default-src 'self' 'unsafe-inline' pcm.groupclaes.be`)
@@ -139,7 +128,8 @@ export default async function(fastify: FastifyInstance) {
             .header('Content-Disposition', `${contentMode}; ${filename}`)
             .type(document.mimeType)
 
-          return createReadStream(_fn)
+          return reply
+            .send(createReadStream(_fn))
         }
         return reply
           .code(404)
@@ -171,7 +161,7 @@ export default async function(fastify: FastifyInstance) {
   fastify.get('/:uuid/preview', async function(request: FastifyRequest<{
     Params: { uuid: string },
     Querystring: { culture?: string }
-  }>, reply: FastifyReply) {
+  }>, reply: FastifyReply): Promise<never> {
     let culture = request.query.culture ?? 'nl'
 
     try {
@@ -198,7 +188,7 @@ export default async function(fastify: FastifyInstance) {
           case 'image/png':
           case 'image/svg+xml':
           case 'image/webp':
-            return reply.redirect(307, `https://pcm.groupclaes.be/${env.APP_VERSION}/i/${uuid}?s=thumb_large`)
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/i/${uuid}?s=thumb_large`, 307)
 
           case 'image/tiff':
             stream = createReadStream('./assets/tif.png')
