@@ -1,4 +1,4 @@
-import { FastifyRequest } from "fastify"
+import { FastifyRequest } from 'fastify'
 
 export default class Tools {
   private static companies = [
@@ -53,7 +53,7 @@ export default class Tools {
       )
     )
 
-  static resolveCompany = (request: FastifyRequest) => {
+  static resolveCompany = (request: FastifyRequest): 'dis' | 'gro' | 'mac' | 'bra' => {
     let ref = request.headers.referer
     if (ref) {
       if (ref.includes('claes-machines.be'))
@@ -73,9 +73,9 @@ export default class Tools {
    * @param {number} `start` start time in seconds
    * @returns {number} returns time in seconds
    */
-  static clock = (start?: number): number => {
+  static clock: (start?: number) => number = (start?: number): number => {
     if (!start) return process.uptime()
-    var end = process.uptime()
+    const end: number = process.uptime()
     return Math.round((end - start) * 1000)
   }
 }

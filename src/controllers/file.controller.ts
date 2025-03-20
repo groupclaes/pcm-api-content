@@ -3,7 +3,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
 import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, unlink } from 'node:fs'
 import { fromBuffer } from 'pdf2pic'
-import * as sharp from 'sharp'
+import sharp from 'sharp'
 
 import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
