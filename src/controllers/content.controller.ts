@@ -93,7 +93,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
           })
       } else {
         if (retry)
-          return Tools.send404Image(request, reply)
+          return Tools.send404Image(request, reply, culture)
         return reply
           .status(404)
           .send({

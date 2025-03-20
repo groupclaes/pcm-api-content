@@ -164,6 +164,7 @@ export default async function(fastify: FastifyInstance) {
     Params: { uuid: string },
     Querystring: { culture?: string }
   }>, reply: FastifyReply): Promise<never> {
+    const culture: string = request.query.culture ?? 'nl'
     try {
       const pool: ConnectionPool = await fastify.getSqlPool()
       const repo = new Document(request.log, pool)
@@ -306,7 +307,7 @@ export default async function(fastify: FastifyInstance) {
         }
       }
 
-      return Tools.send404Image(request, reply)
+      return Tools.send404Image(request, reply, culture)
     } catch (err) {
       return reply
         .status(500)
