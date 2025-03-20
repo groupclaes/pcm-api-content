@@ -324,66 +324,49 @@ export default async function(fastify: FastifyInstance) {
       // const token = request.token || { sub: null }
       let uuid: string = request.params['uuid'].toLowerCase()
 
-      let document = await repository.findOne({
+      let document: any = await repository.findOne({
         guid: uuid
       })
+
+      // single files to delete
+      const single_files: string[] = [
+        'border-color_code',
+        'background-color_code',
+        'color_code'
+      ]
+      // files with ${filename}_etag equivalent
+      const etag_files: string[] = [
+        'image_small',
+        'thumb',
+        'thumb_m',
+        'thumb_l',
+        'thumb_large',
+        'miniature',
+        'image',
+        'image_large',
+        'image_large',
+        'image_large'
+      ]
 
       if (document) {
         const files: string[] = []
 
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_small_etag`)
+        for (let file of etag_files) {
+          if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/${file}`)) {
+            files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/${file}`)
+            files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/${file}_etag`)
+          }
         }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_m_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_l_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/miniature_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large`)
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/image_large_etag`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/border-color_code`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/border-color_code`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/background-color_code`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/background-color_code`)
-        }
-        if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/color_code`)) {
-          files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/color_code`)
+        for (let file of single_files) {
+          if (existsSync(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/${file}`)) {
+            files.push(`${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/${file}`)
+          }
         }
 
-        if (files.length > 0) {
-          await Promise.all(files.map(file => unlink(file, console.error)))
-        }
+        if (files.length > 0)
+          await Promise.all(
+            files.map((file: string): void => unlink(file, console.error))
+          )
         return files
       }
       return reply
