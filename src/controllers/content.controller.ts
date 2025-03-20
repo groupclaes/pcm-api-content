@@ -6,6 +6,7 @@ import * as fs from 'fs'
 import Document from '../repositories/document.repository'
 import { createReadStream, ReadStream } from 'node:fs'
 import { ConnectionPool } from 'mssql'
+import Tools from '../repositories/tools'
 
 export default async function(fastify: FastifyInstance): Promise<void> {
   async function getByParams(request: FastifyRequest<{
@@ -91,20 +92,8 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             message: `File '${_guid}' not found`
           })
       } else {
-        if (retry) {
-          let _fn_404: string = './assets/404.png'
-          // If browser supports svg use vector image to save bandwidth and improve clarity.
-          if (request.headers.accept && request.headers.accept.indexOf('image/svg+xml') > -1) {
-            _fn_404 = './assets/404.svg'
-            reply.type('image/svg+xml')
-          } else
-            reply.type('image/png')
-          // If culture is supported use culture specific image.
-          if (['nl', 'fr'].includes(culture))
-            _fn_404 = _fn_404.replace('/404', '/404_' + culture)
-          return reply
-            .send(createReadStream(_fn_404))
-        }
+        if (retry)
+          return Tools.send404Image(request, reply)
         return reply
           .status(404)
           .send({

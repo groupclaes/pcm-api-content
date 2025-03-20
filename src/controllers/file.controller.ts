@@ -1,7 +1,7 @@
 // External dependencies
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
-import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, unlink } from 'node:fs'
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, unlink, ReadStream } from 'node:fs'
 import { fromBuffer } from 'pdf2pic'
 import sharp from 'sharp'
 
@@ -9,6 +9,8 @@ import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
 import parseRangeHeader from '../request-range'
 import { Range, Ranges } from 'range-parser'
+import Tools from '../repositories/tools'
+import { ConnectionPool } from 'mssql'
 
 const PAGE_SIZE = {
   WIDTH: 420,
@@ -162,10 +164,8 @@ export default async function(fastify: FastifyInstance) {
     Params: { uuid: string },
     Querystring: { culture?: string }
   }>, reply: FastifyReply): Promise<never> {
-    let culture = request.query.culture ?? 'nl'
-
     try {
-      const pool = await fastify.getSqlPool()
+      const pool: ConnectionPool = await fastify.getSqlPool()
       const repo = new Document(request.log, pool)
       let uuid: string = request.params['uuid'].toLowerCase()
 
@@ -178,7 +178,7 @@ export default async function(fastify: FastifyInstance) {
         const _fn_thumb = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`
         const _fn_etag = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large_etag`
 
-        let stream
+        let stream: ReadStream | Buffer
         // preview logic is based on mime type 
         switch (document.mimeType) {
           case 'image/bmp':
@@ -306,31 +306,7 @@ export default async function(fastify: FastifyInstance) {
         }
       }
 
-      if (request.headers.accept && request.headers.accept.indexOf('image/svg+xml') > -1) {
-        reply.type('image/svg+xml')
-        if (culture === 'nl') {
-          const stream = createReadStream('./assets/404_nl.svg')
-          return reply.send(stream)
-        } else if (culture === 'fr') {
-          const stream = createReadStream('./assets/404_fr.svg')
-          return reply.send(stream)
-        } else {
-          const stream = createReadStream('./assets/404.svg')
-          return reply.send(stream)
-        }
-      } else {
-        reply.type('image/png')
-        if (culture === 'nl') {
-          const stream = createReadStream('./assets/404_nl.png')
-          return reply.send(stream)
-        } else if (culture === 'fr') {
-          const stream = createReadStream('./assets/404_fr.png')
-          return reply.send(stream)
-        } else {
-          const stream = createReadStream('./assets/404.png')
-          return reply.send(stream)
-        }
-      }
+      return Tools.send404Image(request, reply)
     } catch (err) {
       return reply
         .status(500)

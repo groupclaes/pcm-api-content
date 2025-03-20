@@ -1,4 +1,5 @@
-import { FastifyRequest } from 'fastify'
+import { FastifyReply, FastifyRequest } from 'fastify'
+import { createReadStream } from 'node:fs'
 
 export default class Tools {
   private static companies = [
@@ -14,6 +15,11 @@ export default class Tools {
     'foto',
     'datasheet',
     'technische-fiche'
+  ]
+
+  private static languages: string[] = [
+    'nl',
+    'fr'
   ]
 
   /**
@@ -77,5 +83,23 @@ export default class Tools {
     if (!start) return process.uptime()
     const end: number = process.uptime()
     return Math.round((end - start) * 1000)
+  }
+
+  static send404Image: (request: FastifyRequest, reply: FastifyReply) => FastifyReply = (request: FastifyRequest<{
+    Params: { culture?: string }
+  }>, reply: FastifyReply) => {
+    const culture: string = request.params.culture?.toLowerCase() ?? 'nl'
+    let _fn_404: string = './assets/404.png'
+    // If browser supports svg use vector image to save bandwidth and improve clarity.
+    if (request.headers.accept && request.headers.accept.indexOf('image/svg+xml') > -1) {
+      _fn_404 = './assets/404.svg'
+      reply.type('image/svg+xml')
+    } else
+      reply.type('image/png')
+    // If culture is supported use culture specific image.
+    if (this.languages.includes(culture))
+      _fn_404 = _fn_404.replace('/404', '/404_' + culture)
+    return reply
+      .send(createReadStream(_fn_404))
   }
 }
