@@ -114,11 +114,13 @@ export default async function(fastify: FastifyInstance): Promise<void> {
         guid: uuid
       })
 
-      if (document) {
-        const _fn = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/file`
-        const _fn_thumb = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`
-        const _fn_etag = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large_etag`
+      const _fn: string = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/file`
+      const _fn_thumb: string = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`
+      const _fn_etag: string = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large_etag`
 
+      const webp: boolean = request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1
+
+      if (document && existsSync(_fn)) {
         const lastMod: Date = statSync(_fn).mtime
         const etag: any = sha1(lastMod.toISOString())
 
@@ -203,26 +205,24 @@ export default async function(fastify: FastifyInstance): Promise<void> {
           }
 
           case 'application/pdf':
+            let type = webp ? 'image/webp' : 'image/jpeg'
             try {
-              if (existsSync(_fn)) {
-                const webp: boolean = request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1
+              const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
 
-                const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
-                if (webp && cached_thumb)
-                  return reply
-                    .type('image/webp')
-                    .send(cached_thumb)
+              if (webp && cached_thumb)
+                return reply
+                  .type(type)
+                  .send(cached_thumb)
 
-                const buffer: Buffer = await getPdfPreviewBuffer(_fn, webp)
+              const buffer: Buffer = await getPdfPreviewBuffer(_fn, webp)
 
-                if (buffer) {
-                  writeFileSync(_fn_thumb, buffer)
-                  writeFileSync(_fn_etag, etag)
+              if (buffer) {
+                writeFileSync(_fn_thumb, buffer)
+                writeFileSync(_fn_etag, etag)
 
-                  return reply
-                    .type(webp ? 'image/webp' : 'image/jpeg')
-                    .send(buffer)
-                }
+                return reply
+                  .type(type)
+                  .send(buffer)
               }
             } catch (err) {
               console.error(err)
