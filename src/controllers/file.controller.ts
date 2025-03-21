@@ -235,7 +235,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
                   })
                 // .flatten({ background })
 
-                const buffer = await (
+                const buffer: Buffer = await (
                   webp ?
                     image
                       .webp({ quality: 80 })
@@ -276,7 +276,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
 
   fastify.delete('/:uuid/cache', async function(request: FastifyRequest<{
     Params: { uuid: string }
-  }>, reply: FastifyReply) {
+  }>, reply: FastifyReply): Promise<FastifyReply> {
     try {
       const pool: ConnectionPool = await fastify.getSqlPool()
       const repository = new Document(request.log, pool)
@@ -326,7 +326,8 @@ export default async function(fastify: FastifyInstance): Promise<void> {
           await Promise.all(
             files.map((file: string): void => unlink(file, console.error))
           )
-        return files
+        return reply
+          .success({ files })
       }
       return reply
         .status(404)
@@ -341,7 +342,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
 
   fastify.get('/tools/ext/:ext', async function(request: FastifyRequest<{
     Params: { ext: string }
-  }>, reply: FastifyReply) {
+  }>, reply: FastifyReply): Promise<FastifyReply> {
     try {
       let ext: string = request.params.ext.toLowerCase()
 
@@ -360,15 +361,15 @@ export default async function(fastify: FastifyInstance): Promise<void> {
           break
       }
 
-      const color_index = ext_int % colors.length
-      const color = colors[color_index]
+      const color_index: number = ext_int % colors.length
+      const color: string = colors[color_index]
 
-      let file = readFileSync('./assets/template.svg').toString('utf8')
+      let file: string = readFileSync('./assets/template.svg').toString('utf8')
       file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase().slice(0, 5))
-      let image = sharp(Buffer.from(file))
-      const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
+      let image: Sharp = sharp(Buffer.from(file))
+      const webp: boolean = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
 
-      const buffer = await (
+      const buffer: Buffer = await (
         webp ?
           image
             .webp({ lossless: true })
