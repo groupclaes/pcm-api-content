@@ -20,7 +20,7 @@ RUN npm install --ignore-scripts && npm run build
 FROM groupclaes/node:22
 # add lib form pdf and image manipulation
 USER root
-RUN apk add --no-cache file ghostscript imagemagick graphicsmagick
+RUN apk add --no-cache file ghostscript graphicsmagick imagemagick
 
 # font assets
 COPY ./assets ./

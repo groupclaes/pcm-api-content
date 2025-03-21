@@ -187,9 +187,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
 
           case 'video/mp4':
             // check if thumbnail exists
-            // todo: check if image is still valid using etag
-
-            const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
+            const cached_thumb: ReadStream = getCachedThumb(_fn_thumb, _fn_etag, etag)
             if (cached_thumb)
               return reply
                 .type('image/gif')
@@ -391,7 +389,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
   })
 }
 
-function getCachedThumb(_fn_thumb: string, _fn_etag: string, etag: string): ReadStream {
+function getCachedThumb(_fn_thumb: string, _fn_etag: string, etag: string): ReadStream | undefined {
   if (existsSync(_fn_etag)) {
     if (readFileSync(_fn_etag).toString() == etag) {
       return createReadStream(_fn_thumb)
