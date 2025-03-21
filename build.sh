@@ -1,5 +1,5 @@
 #!/bin/bash
-docker_tag="test"
+docker_tag="latest"
 docker_reg="groupclaes"
 PACKAGE_VERSION=$(cat package.json \
   | grep version \
@@ -14,6 +14,6 @@ PACKAGE_NAME=$(cat package.json \
   | sed 's/[",]//g' \
   | tr -d '[[:space:]]')
 
-echo "building docker images ${docker_reg}/${PACKAGE_NAME}:${docker_tag}"
+echo "building docker images ${docker_reg}/${PACKAGE_NAME}:${docker_tag} ${docker_reg}/${PACKAGE_NAME}:${PACKAGE_VERSION}"
 
-docker buildx build --platform=linux/amd64 -t "${docker_reg}/${PACKAGE_NAME}:${docker_tag}" -f Dockerfile --sbom=true --provenance=true --push .
+docker buildx build --platform=linux/amd64 -t "${docker_reg}/${PACKAGE_NAME}:${docker_tag}" -t "${docker_reg}/${PACKAGE_NAME}:${PACKAGE_VERSION}" -f Dockerfile --sbom=true --provenance=true --push .

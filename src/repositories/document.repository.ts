@@ -1,17 +1,17 @@
-import sql from 'mssql'
+import sql, { ConnectionPool, IProcedureResult } from 'mssql'
 import { FastifyBaseLogger } from 'fastify'
 
 export default class Document {
   schema: string = '[document].'
   _logger: FastifyBaseLogger
-  _pool: sql.ConnectionPool
+  _pool: ConnectionPool
 
-  constructor(logger: FastifyBaseLogger, pool: sql.ConnectionPool) {
+  constructor(logger: FastifyBaseLogger, pool: ConnectionPool) {
     this._logger = logger
     this._pool = pool
   }
 
-  async findOne(filters) {
+  async findOne(filters: any): Promise<any> {
     const r = new sql.Request(this._pool)
     r.input('id', sql.Int, filters.id)
     r.input('guid', sql.UniqueIdentifier, filters.guid)
@@ -25,7 +25,7 @@ export default class Document {
 
     this._logger.debug({ sqlParam: { filters }, sqlSchema: this.schema, sqlProc: 'usp_findOne' }, 'running procedure')
 
-    let result = await r.execute(`${this.schema}usp_findOne`)
+    let result: IProcedureResult<any> = await r.execute(`${this.schema}usp_findOne`)
     this._logger.debug({ result }, 'procedure result')
 
     if (result.recordset && result.recordset.length === 1) {
