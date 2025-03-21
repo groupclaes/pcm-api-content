@@ -124,7 +124,6 @@ export default async function(fastify: FastifyInstance): Promise<void> {
         const lastMod: Date = statSync(_fn).mtime
         const etag: any = sha1(lastMod.toISOString())
 
-        let stream: ReadStream | Buffer
         // preview logic is based on mime type 
         switch (document.mimeType) {
           case 'image/bmp':
@@ -137,57 +136,33 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/i/${uuid}?s=thumb_large`, 307)
 
           case 'image/tiff':
-            stream = createReadStream('./assets/tif.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'tif')
 
           case 'text/plain':
-            stream = createReadStream('./assets/txt.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'txt')
 
           case 'document-image/vnd.adobe.photoshop':
-            stream = createReadStream('./assets/psd.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'psd')
 
           case 'document-application/postscript':
-            stream = createReadStream('./assets/ps.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'ps')
 
           case 'document-application/vnd.ms-powerpoint':
-            stream = createReadStream('./assets/ppt.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'ppt')
 
           case 'document-application/vnd.ms-excel':
           case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-            stream = createReadStream('./assets/xls.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'xsl')
 
           case 'application/msword':
           case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            stream = createReadStream('./assets/doc.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'doc')
 
           case 'application/x-compressed':
           case 'application/x-zip-compressed':
-            stream = createReadStream('./assets/zip.png')
-            return reply
-              .type('image/png')
-              .send(stream)
+            return fallBackIcon(reply, 'zip')
 
-          case 'video/mp4': {
+          case 'video/mp4':
             // check if thumbnail exists
             const cached_thumb: ReadStream = getCachedThumb(_fn_thumb, _fn_etag, etag)
             if (cached_thumb)
@@ -201,11 +176,10 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             //     handler: 'service-video-worker'
             // }
             // return 404 until preview is generated
-            return Tools.send404Image(request, reply, culture)
-          }
+            break
 
           case 'application/pdf':
-            let type = webp ? 'image/webp' : 'image/jpeg'
+            let type: string = webp ? 'image/webp' : 'image/jpeg'
             try {
               const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
 
@@ -224,13 +198,8 @@ export default async function(fastify: FastifyInstance): Promise<void> {
                   .type(type)
                   .send(buffer)
               }
-            } catch (err) {
-              console.error(err)
-
-              stream = createReadStream('./assets/pdf.png')
-              return reply
-                .type('image/png')
-                .send(stream)
+            } catch {
+              return fallBackIcon(reply, 'pdf')
             }
         }
       }
@@ -459,7 +428,13 @@ function video_handler(request: FastifyRequest, reply: FastifyReply, document: a
   return createReadStream(_fn, { start, end })
 }
 
-const colors = [
+function fallBackIcon(reply: FastifyReply, ext: string): FastifyReply {
+  return reply
+    .type('image/png')
+    .send(createReadStream(`./assets/${ext}.png`))
+}
+
+const colors: string[] = [
   '#efefef',
   '#44efef',
   '#efef44',
