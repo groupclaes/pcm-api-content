@@ -185,7 +185,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
               .type('image/png')
               .send(stream)
 
-          case 'video/mp4':
+          case 'video/mp4': {
             // check if thumbnail exists
             const cached_thumb: ReadStream = getCachedThumb(_fn_thumb, _fn_etag, etag)
             if (cached_thumb)
@@ -200,6 +200,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             // }
             // return 404 until preview is generated
             return Tools.send404Image(request, reply, culture)
+          }
 
           case 'application/pdf':
             try {
@@ -212,37 +213,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
                     .type('image/webp')
                     .send(cached_thumb)
 
-                const convert: Convert = fromPath(_fn, {
-                  density: 100,
-                  format: 'png',
-                  height: PAGE_SIZE.HEIGHT,
-                  width: PAGE_SIZE.WIDTH,
-                  preserveAspectRatio: true
-                })
-
-                const output: BufferResponse = await convert(1, { responseType: 'buffer' })
-
-                let image: Sharp = sharp(output.buffer)
-                const background = '#ffffff'
-                image = image
-                  .resize({
-                    height: PAGE_SIZE.HEIGHT,
-                    width: PAGE_SIZE.WIDTH,
-                    fit: 'contain',
-                    background
-                  })
-                // .flatten({ background })
-
-                const buffer: Buffer = await (
-                  webp ?
-                    image
-                      .webp({ quality: 80 })
-                      .toBuffer()
-                    :
-                    image
-                      .jpeg({ quality: 90 })
-                      .toBuffer()
-                )
+                const buffer: Buffer = await getPdfPreviewBuffer(_fn, webp)
 
                 if (buffer) {
                   writeFileSync(_fn_thumb, buffer)
@@ -396,6 +367,37 @@ function getCachedThumb(_fn_thumb: string, _fn_etag: string, etag: string): Read
     }
   }
   return undefined
+}
+
+async function getPdfPreviewBuffer(_fn: string, webp: boolean): Promise<Buffer> {
+  const convert: Convert = fromPath(_fn, {
+    density: 100,
+    format: 'png',
+    height: PAGE_SIZE.HEIGHT,
+    width: PAGE_SIZE.WIDTH,
+    preserveAspectRatio: true
+  })
+
+  const output: BufferResponse = await convert(1, { responseType: 'buffer' })
+
+  let image: Sharp = sharp(output.buffer)
+  const background = '#ffffff'
+  image = image
+    .resize({
+      height: PAGE_SIZE.HEIGHT,
+      width: PAGE_SIZE.WIDTH,
+      fit: 'contain',
+      background
+    })
+
+  if (webp)
+    return image
+      .webp({ quality: 80 })
+      .toBuffer()
+
+  return image
+    .jpeg({ quality: 90 })
+    .toBuffer()
 }
 
 function video_handler(request: FastifyRequest, reply: FastifyReply, document: any, filename: string, _fn: string, lastMod: Date, uuid: string): FastifyReply | ReadStream {
