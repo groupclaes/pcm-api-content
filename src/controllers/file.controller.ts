@@ -123,6 +123,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
       if (document && existsSync(_fn)) {
         const lastMod: Date = statSync(_fn).mtime
         const etag: any = sha1(lastMod.toISOString())
+        let type: string = webp ? 'image/webp' : 'image/jpeg'
 
         // preview logic is based on mime type 
         switch (document.mimeType) {
@@ -179,7 +180,6 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             break
 
           case 'application/pdf':
-            let type: string = webp ? 'image/webp' : 'image/jpeg'
             try {
               const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
 
