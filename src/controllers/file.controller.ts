@@ -119,6 +119,9 @@ export default async function(fastify: FastifyInstance): Promise<void> {
         const _fn_thumb = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large`
         const _fn_etag = `${env['DATA_PATH']}/content/${uuid.substring(0, 2)}/${uuid}/thumb_large_etag`
 
+        const lastMod: Date = statSync(_fn).mtime
+        const etag: any = sha1(lastMod.toISOString())
+
         let stream: ReadStream | Buffer
         // preview logic is based on mime type 
         switch (document.mimeType) {
@@ -185,37 +188,31 @@ export default async function(fastify: FastifyInstance): Promise<void> {
           case 'video/mp4':
             // check if thumbnail exists
             // todo: check if image is still valid using etag
-            if (existsSync(_fn_thumb)) {
-              stream = createReadStream(_fn_thumb)
+
+            const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
+            if (cached_thumb)
               return reply
                 .type('image/gif')
-                .send(stream)
-            } else {
-              // POST https://pcm.groupclaes.be/service/video-worker/scheduler/work
-              // {
-              //     name: 'Generate missing thumb for mp4',
-              //     uuid,
-              //     handler: 'service-video-worker'
-              // }
-              // return 404 until preview is generated
-              return Tools.send404Image(request, reply, culture)
-            }
+                .send(cached_thumb)
+            // POST https://pcm.groupclaes.be/service/video-worker/scheduler/work
+            // {
+            //     name: 'Generate missing thumb for mp4',
+            //     uuid,
+            //     handler: 'service-video-worker'
+            // }
+            // return 404 until preview is generated
+            return Tools.send404Image(request, reply, culture)
 
           case 'application/pdf':
             try {
               if (existsSync(_fn)) {
-                const lastMod: Date = statSync(_fn).mtime
-                const etag: any = sha1(lastMod.toISOString())
                 const webp: boolean = request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1
 
-                if (existsSync(_fn_etag) && webp) {
-                  if (readFileSync(_fn_etag).toString() == etag) {
-                    stream = readFileSync(_fn_thumb)
-                    return reply
-                      .type('image/webp')
-                      .send(stream)
-                  }
-                }
+                const cached_thumb: ReadStream | undefined = getCachedThumb(_fn_thumb, _fn_etag, etag)
+                if (webp && cached_thumb)
+                  return reply
+                    .type('image/webp')
+                    .send(cached_thumb)
 
                 const convert: Convert = fromPath(_fn, {
                   density: 100,
@@ -391,6 +388,15 @@ export default async function(fastify: FastifyInstance): Promise<void> {
         .send(err)
     }
   })
+}
+
+function getCachedThumb(_fn_thumb: string, _fn_etag: string, etag: string): ReadStream {
+  if (existsSync(_fn_etag)) {
+    if (readFileSync(_fn_etag).toString() == etag) {
+      return createReadStream(_fn_thumb)
+    }
+  }
+  return undefined
 }
 
 function video_handler(request: FastifyRequest, reply: FastifyReply, document: any, filename: string, _fn: string, lastMod: Date, uuid: string): FastifyReply | ReadStream {
