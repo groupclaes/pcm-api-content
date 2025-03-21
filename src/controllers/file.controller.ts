@@ -2,8 +2,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { env } from 'process'
 import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, unlink, ReadStream } from 'node:fs'
-import { fromBuffer } from 'pdf2pic'
-import sharp from 'sharp'
+import { fromPath } from 'pdf2pic'
+import sharp, { Sharp } from 'sharp'
 
 import Document from '../repositories/document.repository'
 import sha1 from '../crypto'
@@ -11,13 +11,15 @@ import parseRangeHeader from '../request-range'
 import { Range, Ranges } from 'range-parser'
 import Tools from '../repositories/tools'
 import { ConnectionPool } from 'mssql'
+import { Convert } from 'pdf2pic/dist/types/convert'
+import { BufferResponse } from 'pdf2pic/dist/types/convertResponse'
 
 const PAGE_SIZE = {
   WIDTH: 420,
   HEIGHT: 595
 }
 
-export default async function(fastify: FastifyInstance) {
+export default async function(fastify: FastifyInstance): Promise<void> {
   /**
    * @route /{version}/content/file/{uuid}
    */
@@ -180,12 +182,31 @@ export default async function(fastify: FastifyInstance) {
               .type('image/png')
               .send(stream)
 
+          case 'video/mp4':
+            // check if thumbnail exists
+            // todo: check if image is still valid using etag
+            if (existsSync(_fn_thumb)) {
+              stream = createReadStream(_fn_thumb)
+              return reply
+                .type('image/gif')
+                .send(stream)
+            } else {
+              // POST https://pcm.groupclaes.be/service/video-worker/scheduler/work
+              // {
+              //     name: 'Generate missing thumb for mp4',
+              //     uuid,
+              //     handler: 'service-video-worker'
+              // }
+              // return 404 until preview is generated
+              return Tools.send404Image(request, reply, culture)
+            }
+
           case 'application/pdf':
             try {
               if (existsSync(_fn)) {
-                const lastMod = statSync(_fn).mtime
-                const etag = sha1(lastMod.toISOString())
-                const webp = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
+                const lastMod: Date = statSync(_fn).mtime
+                const etag: any = sha1(lastMod.toISOString())
+                const webp: boolean = request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1
 
                 if (existsSync(_fn_etag) && webp) {
                   if (readFileSync(_fn_etag).toString() == etag) {
@@ -196,14 +217,17 @@ export default async function(fastify: FastifyInstance) {
                   }
                 }
 
-                const pdf = readFileSync(_fn, null)
-                const convert = fromBuffer(pdf, {
-                  format: 'png'
+                const convert: Convert = fromPath(_fn, {
+                  density: 100,
+                  format: 'png',
+                  height: PAGE_SIZE.HEIGHT,
+                  width: PAGE_SIZE.WIDTH,
+                  preserveAspectRatio: true
                 })
 
-                const output = await convert(1, { responseType: 'buffer' })
+                const output: BufferResponse = await convert(1, { responseType: 'buffer' })
 
-                let image = sharp(output.buffer)
+                let image: Sharp = sharp(output.buffer)
                 const background = '#ffffff'
                 image = image
                   .resize({
@@ -257,7 +281,7 @@ export default async function(fastify: FastifyInstance) {
     Params: { uuid: string }
   }>, reply: FastifyReply) {
     try {
-      const pool = await fastify.getSqlPool()
+      const pool: ConnectionPool = await fastify.getSqlPool()
       const repository = new Document(request.log, pool)
       // const token = request.token || { sub: null }
       let uuid: string = request.params['uuid'].toLowerCase()

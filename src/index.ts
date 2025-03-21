@@ -16,7 +16,7 @@ export default async function(config: any): Promise<FastifyInstance | undefined>
     securityHeaders: { csp: `default-src 'self' 'unsafe-inline' pcm.groupclaes.be` }
   })
 
-  const version_prefix = (env.APP_VERSION ? '/' + env.APP_VERSION : '')
+  const version_prefix: string = (env.APP_VERSION ? '/' + env.APP_VERSION : '')
   const prefix = `${version_prefix}/${config.wrapper.serviceName}`
 
   await fastify.register(fileController, { prefix: `${prefix}/file`, logLevel: LOGLEVEL })
