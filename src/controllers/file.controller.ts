@@ -164,19 +164,22 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             return fallBackIcon(reply, 'zip')
 
           case 'video/mp4':
-            // check if thumbnail exists
-            const cached_thumb: ReadStream = getCachedThumb(_fn_thumb, _fn_etag, etag)
-            if (cached_thumb)
-              return reply
-                .type('image/gif')
-                .send(cached_thumb)
-            // POST https://pcm.groupclaes.be/service/video-worker/scheduler/work
-            // {
-            //     name: 'Generate missing thumb for mp4',
-            //     uuid,
-            //     handler: 'service-video-worker'
-            // }
-            // return 404 until preview is generated
+            try {
+              // check if thumbnail exists
+              const cached_thumb: ReadStream = getCachedThumb(_fn_thumb, _fn_etag, etag)
+              if (cached_thumb)
+                return reply
+                  .type('image/gif')
+                  .send(cached_thumb)
+            } finally {
+              // POST https://pcm.groupclaes.be/service/video-worker/scheduler/work
+              // {
+              //     name: 'Generate missing thumb for mp4',
+              //     uuid,
+              //     handler: 'service-video-worker'
+              // }
+              // return 404 until preview is generated
+            }
             break
 
           case 'application/pdf':
@@ -282,7 +285,7 @@ export default async function(fastify: FastifyInstance): Promise<void> {
     Params: { ext: string }
   }>, reply: FastifyReply): Promise<FastifyReply> {
     try {
-      let ext: string = request.params.ext.toLowerCase()
+      let ext: string = request.params.ext.toLocaleLowerCase()
 
       let ext_int: number
       switch (ext.length) {
@@ -303,7 +306,9 @@ export default async function(fastify: FastifyInstance): Promise<void> {
       const color: string = colors[color_index]
 
       let file: string = readFileSync('./assets/template.svg').toString('utf8')
-      file = file.replace('#4444ef', color).replace('-EXT-', ext.toLocaleUpperCase().slice(0, 5))
+      file = file
+        .replace('#09203F', color)
+        .replace('-EXT-', ext.toLocaleUpperCase().slice(0, 5))
       let image: Sharp = sharp(Buffer.from(file))
       const webp: boolean = (request.headers['accept'] && request.headers['accept'].indexOf('image/webp') > -1)
 
@@ -435,14 +440,20 @@ function fallBackIcon(reply: FastifyReply, ext: string): FastifyReply {
 }
 
 const colors: string[] = [
-  '#efefef',
-  '#44efef',
-  '#efef44',
-  '#ef44ef',
-  '#44ef44',
-  '#ef4444',
-  '#4444ef',
-  '#444444'
+  '#2e3192',
+  '#1bffff',
+  '#d4145a',
+  '#fbb03b',
+  '#009245',
+  '#fcee21',
+  '#662d8c',
+  '#ed1e79',
+  '#ee9ca7',
+  '#ffdde1',
+  '#614385',
+  '#516395',
+  '#02aabd',
+  '#00cdac'
 ]
 
 // const colors2 = [
