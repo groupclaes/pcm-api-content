@@ -441,7 +441,7 @@ function fallBackIcon(reply: FastifyReply, ext: string): FastifyReply {
 
 const colors: string[] = [
   '#2e3192',
-  '#1bffff',
+  '#537895',
   '#d4145a',
   '#fbb03b',
   '#009245',
@@ -449,7 +449,7 @@ const colors: string[] = [
   '#662d8c',
   '#ed1e79',
   '#ee9ca7',
-  '#ffdde1',
+  '#868f96',
   '#614385',
   '#516395',
   '#02aabd',
