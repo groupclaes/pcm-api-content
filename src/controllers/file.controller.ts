@@ -137,31 +137,31 @@ export default async function(fastify: FastifyInstance): Promise<void> {
             return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/i/${uuid}?s=thumb_large`, 307)
 
           case 'image/tiff':
-            return fallBackIcon(reply, 'tif')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/tif`)
 
           case 'text/plain':
-            return fallBackIcon(reply, 'txt')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/txt`)
 
           case 'document-image/vnd.adobe.photoshop':
-            return fallBackIcon(reply, 'psd')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/psd`)
 
           case 'document-application/postscript':
-            return fallBackIcon(reply, 'ps')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/ps`)
 
           case 'document-application/vnd.ms-powerpoint':
-            return fallBackIcon(reply, 'ppt')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/ppt`)
 
           case 'document-application/vnd.ms-excel':
           case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-            return fallBackIcon(reply, 'xsl')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/xsl`)
 
           case 'application/msword':
           case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            return fallBackIcon(reply, 'doc')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/doc`)
 
           case 'application/x-compressed':
           case 'application/x-zip-compressed':
-            return fallBackIcon(reply, 'zip')
+            return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/zip`)
 
           case 'video/mp4':
             try {
@@ -202,9 +202,11 @@ export default async function(fastify: FastifyInstance): Promise<void> {
                   .send(buffer)
               }
             } catch {
-              return fallBackIcon(reply, 'pdf')
+              return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/pdf`)
             }
+            break
         }
+        return reply.redirect(`https://pcm.groupclaes.be/${env.APP_VERSION}/content/file/tools/ext/${document.extension}`)
       }
 
       return Tools.send404Image(request, reply, culture)
@@ -431,12 +433,6 @@ function video_handler(request: FastifyRequest, reply: FastifyReply, document: a
 
   // Stream the requested chunk of the video file
   return createReadStream(_fn, { start, end })
-}
-
-function fallBackIcon(reply: FastifyReply, ext: string): FastifyReply {
-  return reply
-    .type('image/png')
-    .send(createReadStream(`./assets/${ext}.png`))
 }
 
 const colors: string[] = [
