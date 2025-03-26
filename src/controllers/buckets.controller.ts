@@ -3,7 +3,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { ConnectionPool } from 'mssql'
 import { env } from 'process'
 import AdmZip from 'adm-zip'
-import { existsSync, unlinkSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 
 import BucketRepository from '../repositories/bucket.repository'
 
@@ -15,7 +15,6 @@ export default async function(fastify: FastifyInstance): Promise<void> {
     Params: { uuid: string }
   }>, reply: FastifyReply): Promise<any> {
     const uuid: string = request.params.uuid.toLocaleLowerCase().replace('.zip', '')
-    const archive_fn = `bucket-${uuid}-${request.id}.zip`
 
     try {
       const pool: ConnectionPool = await fastify.getSqlPool()
@@ -59,9 +58,6 @@ export default async function(fastify: FastifyInstance): Promise<void> {
     } catch (err) {
       request.log.error({ err, uuid }, 'Error while retrieving file')
       return reply.error(err?.message, 500)
-    } finally {
-      if (existsSync(`./${archive_fn}`))
-        unlinkSync(`./${archive_fn}`)
     }
   })
 }
