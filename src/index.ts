@@ -5,6 +5,7 @@ import { FastifyInstance } from 'fastify'
 import contentController from './controllers/content.controller'
 import fileController from './controllers/file.controller'
 import bucketsController from './controllers/buckets.controller'
+import downloadController from './controllers/download.controller'
 
 const LOGLEVEL = 'debug'
 
@@ -22,6 +23,7 @@ export default async function(config: any): Promise<FastifyInstance | undefined>
 
   await fastify.register(fileController, { prefix: `${prefix}/file`, logLevel: LOGLEVEL })
   await fastify.register(bucketsController, { prefix: `${prefix}/buckets`, logLevel: LOGLEVEL })
+  await fastify.register(downloadController, { prefix: `${prefix}/download`, logLevel: LOGLEVEL })
   await fastify.register(contentController, { prefix: prefix, logLevel: 'info' })
 
   await fastify.listen({ port: +(env['PORT'] ?? 80), host: '::' })
